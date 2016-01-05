@@ -167,3 +167,9 @@ check_print_test_warn_row(
 	'Directory <em><a href="' . htmlentities( config_get_global( 'short_path' ) ) . 'api">api</a></em> should be removed from the MantisBT root if you do not plan on using <a href="http://en.wikipedia.org/wiki/SOAP">SOAP</a>',
 	!is_dir( $t_paths['absolute_path']['config_value'] . 'api' )
 );
+
+check_print_test_warn_row(
+	'url_allowed_hosts configuration option has been specified',
+	!empty( config_get_global('url_allowed_hosts') ),
+	array( false => 'For increased security it is recommended that you set this option to define valid hosts to be used in public URLs' )
+);
