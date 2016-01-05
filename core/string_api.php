@@ -694,6 +694,21 @@ function string_get_bugnote_view_url( $p_bug_id, $p_bugnote_id ) {
 }
 
 /**
+ * Return the URL path to the base installation, including
+ * fully qualified domain, with validation to use only approved
+ * hostnames if configured in $g_url_allowed_hosts
+ * @return string
+ */
+function string_get_fqdn_path() {
+	$t_url_host = config_get( 'url_host' );
+	$t_allowed_hosts = config_get( 'url_allowed_hosts' );
+	if( !empty( $t_allowed_hosts ) && !in_array( $t_url_host, $t_allowed_hosts ) ) {
+			$t_url_host= reset($t_allowed_hosts);
+		}
+	return config_get( 'url_protocol' ) . '://' . $t_url_host . config_get( 'url_path' );
+}
+
+/**
  * return the name and GET parameters of a bug VIEW page for the given bug
  * account for the user preference and site override
  * The returned url includes the fully qualified domain, hence it is suitable to be included
@@ -703,7 +718,7 @@ function string_get_bugnote_view_url( $p_bug_id, $p_bugnote_id ) {
  * @return string
  */
 function string_get_bugnote_view_url_with_fqdn( $p_bug_id, $p_bugnote_id ) {
-	return config_get( 'path' ) . string_get_bug_view_url( $p_bug_id ) . '#c' . $p_bugnote_id;
+	return string_get_fqdn_path() . string_get_bug_view_url( $p_bug_id ) . '#c' . $p_bugnote_id;
 }
 
 /**
@@ -714,7 +729,7 @@ function string_get_bugnote_view_url_with_fqdn( $p_bug_id, $p_bugnote_id ) {
  * @return string
  */
 function string_get_bug_view_url_with_fqdn( $p_bug_id ) {
-	return config_get( 'path' ) . string_get_bug_view_url( $p_bug_id );
+	return string_get_fqdn_path() . string_get_bug_view_url( $p_bug_id );
 }
 
 /**

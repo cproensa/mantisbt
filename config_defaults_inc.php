@@ -220,6 +220,36 @@ if( isset ( $_SERVER['SCRIPT_NAME'] ) ) {
 $g_path	= $t_protocol . '://' . $t_host . $t_path;
 
 /**
+ * Host in URL as seen from the web browser
+ * This variable is used to build public links (email, etc)
+ * @global string $g_url_host
+ */
+$g_url_host = $t_host;
+
+/*
+ * Path in URL as seen from the web browser, without hostname
+ * This variable is used to build public links (email, etc)
+ * @global string $g_url_path
+ */
+$g_url_path = $t_path;
+
+/**
+ * Protocol un URL as seen from web browser
+ * This variable is used to build public links (email, etc)
+ * @global string $g_url_protocol
+ */
+$g_url_protocol = $t_protocol;
+
+/**
+ * Array of allowed host to appear on email links
+ * To be overriden in config_inc.php
+ * If empty, hostname validation won't be enforced
+ * If the hostname to be used is not included here, first one will be used as default
+ * @global array $g_allowed_url_hosts
+ */
+$g_url_allowed_hosts = array ();
+
+/**
  * path to your images directory (for icons)
  * requires trailing /
  * @global string $g_icon_path
@@ -4262,7 +4292,7 @@ $g_global_settings = array(
 	'class_path','library_path', 'language_path', 'absolute_path_default_upload_folder',
 	'ldap_simulation_file_path', 'plugin_path', 'bottom_include_page', 'top_include_page',
 	'default_home_page', 'logout_redirect_page', 'manual_url', 'logo_url', 'wiki_engine_url',
-	'cdn_enabled', 'public_config_names'
+	'cdn_enabled', 'public_config_names', 'url_protocol', 'url_host', 'url_path', 'url_allowed_hosts'
 );
 
 /**
