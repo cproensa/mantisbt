@@ -278,16 +278,13 @@ class BugData {
 	}
 
 	/**
-	 * Overloaded Function handling property sets
-	 *
-	 * @param string $p_name  Property name.
-	 * @param string $p_value Value to set.
-	 * @private
-	 * @return void
+	 * Returns value converted into proper type according to destination field
+	 * @param string $p_name	Field name
+	 * @param mixed $p_value	Value
+	 * @return mixed	Value converted to proper type.
 	 */
-	public function __set( $p_name, $p_value ) {
+	public static function normalized_field_value( $p_name, $p_value ) {
 		switch( $p_name ) {
-			# integer types
 			case 'id':
 			case 'project_id':
 			case 'reporter_id':
@@ -302,6 +299,29 @@ class BugData {
 			case 'category_id':
 				$p_value = (int)$p_value;
 				break;
+			case 'due_date':
+				if( !is_numeric( $p_value ) ) {
+					$p_value = strtotime( $p_value );
+				}
+				break;
+			case 'summary':
+			case 'build':
+				$p_value = trim( $p_value );
+				break;
+		}
+		return $p_value;
+	}
+
+	/**
+	 * Overloaded Function handling property sets
+	 *
+	 * @param string $p_name  Property name.
+	 * @param string $p_value Value to set.
+	 * @private
+	 * @return void
+	 */
+	public function __set( $p_name, $p_value ) {
+		switch( $p_name ) {
 			case 'target_version':
 				if( !$this->loading && $this->$p_name != $p_value ) {
 					# Only set target_version if user has access to do so
@@ -310,17 +330,14 @@ class BugData {
 					}
 				}
 				break;
-			case 'due_date':
-				if( !is_numeric( $p_value ) ) {
-					$p_value = strtotime( $p_value );
-				}
-				break;
 			case 'summary':
 			case 'build':
 				if ( !$this->loading ) {
-					$p_value = trim( $p_value );
+					$p_value = self::normalized_field_value( $p_name, $p_value );
 				}
 				break;
+			default:
+				$p_value = self::normalized_field_value( $p_name, $p_value );
 		}
 		$this->$p_name = $p_value;
 	}
@@ -712,6 +729,75 @@ class BugData {
 		}
 
 		return true;
+	}
+}
+
+class BugChange extends BugData {
+	protected $original_bug;
+
+	public function __construct( $p_bug_id ) {
+		$t_row = bug_get_row( $p_bug_id );
+		$this->original_bug = new BugData();
+		$this->original_bug->loadrow( $t_row );
+		$this->loadrow( $t_row );
+	}
+
+	/**
+	 * Overloaded Function handling property sets
+	 *
+	 * @param string $p_name  Property name.
+	 * @param string $p_value Value to set.
+	 * @return void
+	 */
+	public function __set( $p_name, $p_value ) {
+		$c_value = BugData::normalized_field_value( $p_name, $p_value );
+		if( $this->loading == true || !isset( $this->id ) ) {
+			parent::__set( $p_name, $c_value );
+			return;
+		}
+		switch( $p_name ) {
+			case 'project_id':
+				parent::__set( $p_name, $c_value );
+				$this->check_category();
+				break;
+			default:
+				parent::__set( $p_name, $c_value );
+		}
+	}
+
+	function update( $p_update_extended = false, $p_bypass_mail = false ) {
+		event_signal( 'EVENT_UPDATE_BUG_DATA', $this, $this->original_bug );
+		parent::update( $p_update_extended, $p_bypass_mail );
+		event_signal( 'EVENT_UPDATE_BUG', array( $t_existing_bug, $t_updated_bug ) );
+	}
+
+	protected function check_category() {
+		# Update the category if needed
+		$t_category_id = $this->category_id;
+
+		# Bug has no category
+		if( $t_category_id == 0 ) {
+			# Category is required in target project, set it to default
+			if( ON != config_get( 'allow_no_category', null, null, $this->project_id ) ) {
+				$this->category_id = config_get( 'default_category_for_moves', null, null, $this->project_id );
+			}
+		} else {
+			# Check if the category is global, and if not attempt mapping it to the new project
+			$t_category_project_id = category_get_field( $t_category_id, 'project_id' );
+
+			if( $t_category_project_id != ALL_PROJECTS
+			  && !in_array( $t_category_project_id, project_hierarchy_inheritance( $this->project_id ) )
+			) {
+				# Map by name
+				$t_category_name = category_get_field( $t_category_id, 'name' );
+				$t_target_project_category_id = category_get_id_by_name( $t_category_name, $this->project_id, false );
+				if( $t_target_project_category_id === false ) {
+					# Use target project's default category for moves, since there is no match by name.
+					$t_target_project_category_id = config_get( 'default_category_for_moves', null, null, $this->project_id );
+				}
+				$this->category_id = $t_target_project_category_id;
+			}
+		}
 	}
 }
 
@@ -1205,11 +1291,17 @@ function bug_copy( $p_bug_id, $p_target_project_id = null, $p_copy_custom_fields
  * @access public
  */
 function bug_move( $p_bug_id, $p_target_project_id ) {
+	$t_bugdata = bug_get( $p_bug_id );
+	$t_bugdata->project_id = $p_target_project_id;
+	$t_bugdata->update();
+
 	# Attempt to move disk based attachments to new project file directory.
 	file_move_bug_attachments( $p_bug_id, $p_target_project_id );
 
+	return;
+
 	# Move the issue to the new project.
-	bug_set_field( $p_bug_id, 'project_id', $p_target_project_id );
+	//bug_set_field( $p_bug_id, 'project_id', $p_target_project_id );
 
 	# Update the category if needed
 	$t_category_id = bug_get_field( $p_bug_id, 'category_id' );
@@ -1363,6 +1455,8 @@ function bug_get_row( $p_bug_id ) {
  * @access public
  */
 function bug_get( $p_bug_id, $p_get_extended = false ) {
+	return new BugChange( $p_bug_id );
+/*
 	if( $p_get_extended ) {
 		$t_row = bug_get_extended_row( $p_bug_id );
 	} else {
@@ -1372,6 +1466,7 @@ function bug_get( $p_bug_id, $p_get_extended = false ) {
 	$t_bug_data = new BugData;
 	$t_bug_data->loadrow( $t_row );
 	return $t_bug_data;
+*/
 }
 
 /**
