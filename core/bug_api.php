@@ -750,28 +750,55 @@ class BugChange extends BugData {
 	 * @return void
 	 */
 	public function __set( $p_name, $p_value ) {
-		$c_value = BugData::normalized_field_value( $p_name, $p_value );
 		if( $this->loading == true || !isset( $this->id ) ) {
-			parent::__set( $p_name, $c_value );
+			parent::__set( $p_name, $p_value );
 			return;
 		}
-		switch( $p_name ) {
-			case 'project_id':
-				parent::__set( $p_name, $c_value );
-				$this->check_category();
-				break;
-			default:
-				parent::__set( $p_name, $c_value );
+		$c_value = BugData::normalized_field_value( $p_name, $p_value );
+		parent::__set( $p_name, $c_value );
+	}
+
+	public function changeset( array $p_changes ) {
+		foreach( $p_changes as $p_name => $p_value ) {
+			switch( $p_name ) {
+				# @todo here we can process custom fields
+				# default is sent to BugData
+				default:
+					parent::__set( $p_name, $c_value );
+			}
 		}
 	}
 
+	protected function has_changed( $p_name ) {
+		return ( $this->__get( $p_name ) != $this->original_bug->__get( $p_name ) );
+	}
+
 	function update( $p_update_extended = false, $p_bypass_mail = false ) {
+		# Ater changing a set of properties, check some rules:
+		if( $this->has_changed( 'project_id' ) ) {
+			$this->check_move();
+		}
+		if( $this->has_changed( 'handler_id' ) ) {
+			$this->check_assign();
+		}
 		event_signal( 'EVENT_UPDATE_BUG_DATA', $this, $this->original_bug );
 		parent::update( $p_update_extended, $p_bypass_mail );
 		event_signal( 'EVENT_UPDATE_BUG', array( $t_existing_bug, $t_updated_bug ) );
 	}
 
-	protected function check_category() {
+	protected function check_assign() {
+		# Handle automatic assignment of issues.
+		if( config_get( 'auto_set_status_to_assigned' ) &&
+			$this->original_bug->handler_id == NO_USER &&
+			$this->handler_id != NO_USER &&
+			$this->status == $this->original_bug->status &&
+			$this->status < config_get( 'bug_assigned_status' )
+		) {
+			$this->status = config_get( 'bug_assigned_status' );
+		}
+	}
+
+	protected function check_move() {
 		# Update the category if needed
 		$t_category_id = $this->category_id;
 
@@ -1434,7 +1461,7 @@ function bug_get_extended_row( $p_bug_id ) {
 	$t_text = bug_text_cache_row( $p_bug_id );
 
 	# merge $t_text first so that the 'id' key has the bug id not the bug text id
-	return array_merge( $t_text, $t_base );
+	return bug_add_to_cache( array_merge( $t_text, $t_base ) );
 }
 
 /**
@@ -1732,6 +1759,22 @@ function bug_assign( $p_bug_id, $p_user_id, $p_bugnote_text = '', $p_bugnote_pri
 	if( ( $p_user_id != NO_USER ) && !access_has_bug_level( config_get( 'handle_bug_threshold' ), $p_bug_id, $p_user_id ) ) {
 		trigger_error( ERROR_USER_DOES_NOT_HAVE_REQ_ACCESS );
 	}
+
+	$t_bugdata = bug_get( $p_bug_id );
+	$t_original_handler = $t_bugdata->handler_id;
+	$t_bugdata->handler_id = $p_user_id;
+	# bypass email on update
+	$t_bugdata->update( false, true );
+
+	# Add bugnote if supplied ignore false return
+	bugnote_add( $p_bug_id, $p_bugnote_text, 0, $p_bugnote_private, 0, '', null, false );
+
+	# Send email for change of handler
+	if( $t_bugdata->handler_id != $t_original_handler ) {
+		email_owner_changed( $p_bug_id, $h_handler_id, $p_user_id );
+	}
+
+	return;
 
 	# extract current information into history variables
 	$h_status = bug_get_field( $p_bug_id, 'status' );
