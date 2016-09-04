@@ -103,6 +103,8 @@ foreach( $f_bug_arr as $t_bug_id ) {
 
 	$t_status = $t_bug->status;
 
+	error_throw_exception( true );
+	try {
 	switch( $f_action ) {
 		case 'CLOSE':
 			$t_closed = config_get( 'bug_closed_status_threshold' );
@@ -333,6 +335,10 @@ foreach( $f_bug_arr as $t_bug_id ) {
 		default:
 			trigger_error( ERROR_GENERIC, ERROR );
 	}
+	} catch( MantisGenericException $t_exception ) {
+		$t_failed_ids[$t_bug_id] = $t_exception->getCode() . ' ' . $t_exception->getMessage() ;
+	}
+	error_throw_exception( false );
 
 	# Bug Action Event
 	event_signal( 'EVENT_BUG_ACTION', array( $f_action, $t_bug_id ) );

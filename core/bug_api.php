@@ -1809,6 +1809,9 @@ function bug_assign( $p_bug_id, $p_user_id, $p_bugnote_text = '', $p_bugnote_pri
 		trigger_error( ERROR_USER_DOES_NOT_HAVE_REQ_ACCESS );
 	}
 
+	# force error for testing:
+	trigger_error( ERROR_USER_DOES_NOT_HAVE_REQ_ACCESS, ERROR );
+
 	# extract current information into history variables
 	$h_status = bug_get_field( $p_bug_id, 'status' );
 	$h_handler_id = bug_get_field( $p_bug_id, 'handler_id' );

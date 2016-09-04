@@ -43,12 +43,21 @@ $g_errors_delayed = array();
 $g_error_handled = false;
 $g_error_proceed_url = null;
 $g_error_send_page_header = true;
+$g_error_throw_exception = false;
 
 # Make sure we always capture User-defined errors regardless of ini settings
 # These can be disabled in config_inc.php, see $g_display_errors
 error_reporting( error_reporting() | E_USER_ERROR | E_USER_WARNING | E_USER_NOTICE );
 
 set_error_handler( 'error_handler' );
+
+function error_throw_exception( $p_enable = null ) {
+	global $g_error_throw_exception;
+	if( null === $p_enable ) {
+		$p_enable = false;
+	}
+	$g_error_throw_exception = $p_enable;
+}
 
 /**
  * Default error handler
@@ -75,6 +84,7 @@ set_error_handler( 'error_handler' );
 function error_handler( $p_type, $p_error, $p_file, $p_line, array $p_context ) {
 	global $g_error_parameters, $g_error_handled, $g_error_proceed_url;
 	global $g_error_send_page_header;
+	global $g_error_throw_exception;
 
 	# check if errors were disabled with @ somewhere in this call chain
 	if( 0 == error_reporting() ) {
@@ -98,6 +108,10 @@ function error_handler( $p_type, $p_error, $p_file, $p_line, array $p_context ) 
 	if( $t_db_connected ) {
 		lang_push( lang_get_default() );
 		$t_lang_pushed = true;
+	}
+
+	if ( $g_error_throw_exception && $p_type == E_USER_ERROR ) {
+		throw new MantisGenericException( error_string( $p_error ), $p_error );
 	}
 
 	$t_method_array = config_get_global( 'display_errors' );
