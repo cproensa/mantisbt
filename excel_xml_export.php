@@ -41,16 +41,13 @@
 
 require_once( 'core.php' );
 require_api( 'authentication_api.php' );
-require_api( 'bug_api.php' );
 require_api( 'columns_api.php' );
-require_api( 'config_api.php' );
-require_api( 'excel_api.php' );
+require_api( 'constant_inc.php' );
+require_api( 'csv_api.php' );
 require_api( 'file_api.php' );
 require_api( 'filter_api.php' );
-require_api( 'gpc_api.php' );
 require_api( 'helper_api.php' );
 require_api( 'print_api.php' );
-require_api( 'utility_api.php' );
 
 require_once dirname(__FILE__) . '/library/PHPExcel/Classes/PHPExcel.php';
 
@@ -60,9 +57,110 @@ $f_export = gpc_get_string( 'export', '' );
 
 helper_begin_long_process();
 
+# Get current filter
+$t_filter = filter_get_bug_rows_filter();
+
+# Get the query clauses
+$t_query_clauses = filter_get_bug_rows_query_clauses( $t_filter );
+
+# Get the total number of bugs that meet the criteria.
+$p_bug_count = filter_get_bug_count( $t_query_clauses, /* pop_params */ false );
+
+if( 0 == $p_bug_count ) {
+	print_header_redirect( 'view_all_set.php?type=0' );
+}
+
+# Execute query
+$t_result = filter_get_bug_rows_result( $t_query_clauses );
+
+# Get columns to be exported
+$t_columns = csv_get_columns();
+
 
 // Create new PHPExcel object
 $objPHPExcel = new PHPExcel();
+
+# export the titles
+$t_first_column = true;
+
+$t_titles = array();
+foreach ( $t_columns as $t_column ) {
+	$t_titles[] = column_get_title( $t_column );
+}
+
+$objPHPExcel->getActiveSheet()->fromArray( $t_titles, null, 'A1');
+
+$t_next_row=2;
+
+
+$t_end_of_results = false;
+do {
+	# Clear cache for next block
+	bug_clear_cache_all();
+
+	# Keep reading until reaching max block size or end of result set
+	$t_read_rows = array();
+	$t_count = 0;
+	$t_bug_id_array = array();
+	$t_unique_user_ids = array();
+	while( $t_count < EXPORT_BLOCK_SIZE ) {
+		$t_row = db_fetch_array( $t_result );
+		if( false === $t_row ) {
+			$t_end_of_results = true;
+			break;
+		}
+		$t_bug_id_array[] = (int)$t_row['id'];
+		$t_read_rows[] = $t_row;
+		$t_count++;
+	}
+	# Max block size has been reached, or no more rows left to complete the block.
+	# Either way, process what we have
+
+	# convert and cache data
+	$t_rows = filter_cache_result( $t_read_rows, $t_bug_id_array );
+	bug_cache_columns_data( $t_rows, $t_columns );
+
+	# Clear arrays that are not needed
+	unset( $t_read_rows );
+	unset( $t_unique_user_ids );
+	unset( $t_bug_id_array );
+
+	# export the rows
+	foreach ( $t_rows as $t_row ) {
+		$t_first_column = true;
+
+		$t_excel_row = array();
+		
+		foreach ( $t_columns as $t_column ) {
+			$t_value = null;
+			if( column_get_custom_field_name( $t_column ) !== null || column_is_plugin_column( $t_column ) ) {
+				ob_start();
+				$t_column_value_function = 'print_column_value';
+				helper_call_custom_function( $t_column_value_function, array( $t_column, $t_row, COLUMNS_TARGET_CSV_PAGE ) );
+				$t_value = ob_get_clean();
+
+				//echo csv_escape_string( $t_value );
+			} else {
+				ob_start();
+				$t_function = 'csv_format_' . $t_column;
+
+				echo $t_function( $t_row );
+				$t_value = ob_get_clean();
+			}
+			$t_excel_row[] = $t_value;
+			
+		}
+		$objPHPExcel->getActiveSheet()->fromArray( $t_excel_row, null, 'A' . $t_next_row );
+		$t_next_row++;
+
+
+	}
+
+} while ( false === $t_end_of_results );
+
+
+
+
 
 // Set document properties
 $objPHPExcel->getProperties()->setCreator("Maarten Balliauw")
@@ -73,18 +171,6 @@ $objPHPExcel->getProperties()->setCreator("Maarten Balliauw")
 							 ->setKeywords("office 2007 openxml php")
 							 ->setCategory("Test result file");
 
-
-// Add some data
-$objPHPExcel->setActiveSheetIndex(0)
-            ->setCellValue('A1', 'Hello')
-            ->setCellValue('B2', 'world!')
-            ->setCellValue('C1', 'Hello')
-            ->setCellValue('D2', 'world!');
-
-// Miscellaneous glyphs, UTF-8
-$objPHPExcel->setActiveSheetIndex(0)
-            ->setCellValue('A4', 'Miscellaneous glyphs')
-            ->setCellValue('A5', 'éàèùâêîôûëïüÿäöüç');
 
 // Rename worksheet
 $objPHPExcel->getActiveSheet()->setTitle('Simple');
