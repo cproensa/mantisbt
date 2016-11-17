@@ -37,7 +37,7 @@
  */
 
 # Prevent output of HTML in the content if errors occur
-define( 'DISABLE_INLINE_ERROR_REPORTING', true );
+//define( 'DISABLE_INLINE_ERROR_REPORTING', true );
 
 require_once( 'core.php' );
 require_api( 'authentication_api.php' );
@@ -52,106 +52,61 @@ require_api( 'helper_api.php' );
 require_api( 'print_api.php' );
 require_api( 'utility_api.php' );
 
+require_once dirname(__FILE__) . '/library/PHPExcel/Classes/PHPExcel.php';
+
 auth_ensure_user_authenticated();
 
 $f_export = gpc_get_string( 'export', '' );
 
 helper_begin_long_process();
 
-$t_export_title = excel_get_default_filename();
 
-$t_short_date_format = config_get( 'short_date_format' );
+// Create new PHPExcel object
+$objPHPExcel = new PHPExcel();
 
-header( 'Content-Type: application/vnd.ms-excel; charset=UTF-8' );
-header( 'Pragma: public' );
-header( 'Content-Disposition: attachment; filename="' . urlencode( file_clean_name( $t_export_title ) ) . '.xml"' ) ;
-
-echo excel_get_header( $t_export_title );
-echo excel_get_titles_row();
-
-$f_bug_arr = explode( ',', $f_export );
-
-$t_columns = excel_get_columns();
+// Set document properties
+$objPHPExcel->getProperties()->setCreator("Maarten Balliauw")
+							 ->setLastModifiedBy("Maarten Balliauw")
+							 ->setTitle("Office 2007 XLSX Test Document")
+							 ->setSubject("Office 2007 XLSX Test Document")
+							 ->setDescription("Test document for Office 2007 XLSX, generated using PHP classes.")
+							 ->setKeywords("office 2007 openxml php")
+							 ->setCategory("Test result file");
 
 
-# Get current filter
-$t_filter = filter_get_bug_rows_filter();
+// Add some data
+$objPHPExcel->setActiveSheetIndex(0)
+            ->setCellValue('A1', 'Hello')
+            ->setCellValue('B2', 'world!')
+            ->setCellValue('C1', 'Hello')
+            ->setCellValue('D2', 'world!');
 
-# Get the query clauses
-$t_query_clauses = filter_get_bug_rows_query_clauses( $t_filter );
+// Miscellaneous glyphs, UTF-8
+$objPHPExcel->setActiveSheetIndex(0)
+            ->setCellValue('A4', 'Miscellaneous glyphs')
+            ->setCellValue('A5', 'éàèùâêîôûëïüÿäöüç');
 
-# Get the total number of bugs that meet the criteria.
-$p_bug_count = filter_get_bug_count( $t_query_clauses, /* pop_params */ false );
+// Rename worksheet
+$objPHPExcel->getActiveSheet()->setTitle('Simple');
 
-if( 0 == $p_bug_count ) {
-	print_header_redirect( 'view_all_set.php?type=0&print=1' );
-}
 
-# Execute query
-$t_result = filter_get_bug_rows_result( $t_query_clauses );
+// Set active sheet index to the first sheet, so Excel opens this as the first sheet
+$objPHPExcel->setActiveSheetIndex(0);
 
-$t_end_of_results = false;
-do {
-	# Clear cache for next block
-	bug_clear_cache_all();
 
-	# Keep reading until reaching max block size or end of result set
-	$t_read_rows = array();
-	$t_count = 0;
-	$t_bug_id_array = array();
-	$t_unique_user_ids = array();
-	while( $t_count < EXPORT_BLOCK_SIZE ) {
-		$t_row = db_fetch_array( $t_result );
-		if( false === $t_row ) {
-			$t_end_of_results = true;
-			break;
-		}
-		# @TODO, the "export" bug list parameter functionality should be implemented in a more efficient way
-		if( is_blank( $f_export ) || in_array( $t_row['id'], $f_bug_arr ) ) {
-			$t_bug_id_array[] = (int)$t_row['id'];
-			$t_read_rows[] = $t_row;
-			$t_count++;
-		}
-	}
-	# Max block size has been reached, or no more rows left to complete the block.
-	# Either way, process what we have
-	if( 0 === $t_count && !$t_end_of_results ) {
-		continue;
-	}
-	if( 0 === $t_count && $t_end_of_results ) {
-		break;
-	}
+// Redirect output to a client’s web browser (OpenDocument)
+header('Content-Type: application/vnd.oasis.opendocument.spreadsheet');
+header('Content-Disposition: attachment;filename="01simple.ods"');
+header('Cache-Control: max-age=0');
+// If you're serving to IE 9, then the following may be needed
+header('Cache-Control: max-age=1');
 
-	# convert and cache data
-	$t_rows = filter_cache_result( $t_read_rows, $t_bug_id_array );
-	bug_cache_columns_data( $t_rows, $t_columns );
+// If you're serving to IE over SSL, then the following may be needed
+header ('Expires: Mon, 26 Jul 1997 05:00:00 GMT'); // Date in the past
+header ('Last-Modified: '.gmdate('D, d M Y H:i:s').' GMT'); // always modified
+header ('Cache-Control: cache, must-revalidate'); // HTTP/1.1
+header ('Pragma: public'); // HTTP/1.0
 
-	# Clear arrays that are not needed
-	unset( $t_read_rows );
-	unset( $t_unique_user_ids );
-	unset( $t_bug_id_array );
-
-	# export the rows
-	foreach ( $t_rows as $t_row ) {
-
-		echo excel_get_start_row();
-
-		foreach ( $t_columns as $t_column ) {
-			$t_custom_field = column_get_custom_field_name( $t_column );
-			if( $t_custom_field !== null ) {
-				echo excel_format_custom_field( $t_row->id, $t_row->project_id, $t_custom_field );
-			} else if( column_is_plugin_column( $t_column ) ) {
-				echo excel_format_plugin_column_value( $t_column, $t_row );
-			} else {
-				$t_function = 'excel_format_' . $t_column;
-				echo $t_function( $t_row );
-			}
-		}
-
-		echo excel_get_end_row();
-	}
-
-} while ( false === $t_end_of_results );
-
-echo excel_get_footer();
-
+$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'OpenDocument');
+$objWriter->save('php://output');
+exit;
