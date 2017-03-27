@@ -273,6 +273,9 @@ function layout_head_css() {
 
 	# page specific plugin styles
 
+	# test
+	html_css_link( 'jquery.floatingscroll.css' );
+	
 	# theme styles
 	html_css_link( 'ace.min.css' );
 	html_css_link( 'ace-mantis.css' );

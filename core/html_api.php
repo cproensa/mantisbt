@@ -313,6 +313,9 @@ function html_head_javascript() {
 		html_javascript_link( 'dropzone-' . DROPZONE_VERSION . '.min.js' );
 	}
 
+	#test
+	html_javascript_link( 'jquery.floatingscroll.js' );
+	
 	html_javascript_link( 'common.js' );
 	foreach ( $g_scripts_included as $t_script_path ) {
 		html_javascript_link( $t_script_path );

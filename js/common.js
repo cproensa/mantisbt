@@ -338,6 +338,8 @@ $(document).ready( function() {
 			$('tr[id=bugnote-attach-files]').show();
 		}
 	});
+	
+	$('.table-responsive').floatingScroll();
 });
 
 function setBugLabel() {
