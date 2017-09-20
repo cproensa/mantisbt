@@ -157,6 +157,11 @@ function db_connect( $p_dsn, $p_hostname = null, $p_username = null, $p_password
 			# @todo Is this needed for other databases?
 			db_query( 'SET NAMES UTF8' );
 		}
+		if( db_is_oracle() ) {
+			# disable automatic record count for queries, which is not supported natively by the oracle driver
+			global $ADODB_COUNTRECS;
+			$ADODB_COUNTRECS = false;
+		}
 	} else {
 		db_error();
 		trigger_error( ERROR_DB_CONNECT_FAILED, ERROR );
@@ -444,8 +449,18 @@ function db_param_pop() {
  * @param IteratorAggregate $p_result Database Query Record Set to retrieve record count for.
  * @return integer Record Count
  */
-function db_num_rows( IteratorAggregate $p_result ) {
-	return $p_result->RecordCount();
+function db_num_rows( IteratorAggregate &$p_result ) {
+	$t_count = $p_result->RecordCount();
+
+	# If returned count is -1, it means this functionality is not supported by the ADOdb driver
+	if( -1 == $t_count ) {
+		# Convert current recordset to an array type, this will fetch all the data immediatly.
+		# Current recordset will be replaced by the new one, to be used in any subsequent data fetch
+		# This is needed because in some DB (eg: oracle) a recordset can't be scrolled back.
+		$p_result = $p_result->connection->_rs2rs( $p_result );
+		$t_count = $p_result->RecordCount();
+	}
+	return $t_count;
 }
 
 /**
@@ -529,8 +544,11 @@ function db_fetch_array( IteratorAggregate &$p_result ) {
  * @return mixed Database result
  */
 function db_result( $p_result, $p_row_index = 0, $p_col_index = 0 ) {
-	if( $p_result && ( db_num_rows( $p_result ) > 0 ) ) {
-		$p_result->Move( $p_row_index );
+	if( $p_result ) {
+		$t_can_fetch = $p_result->Move( $p_row_index );
+		if( !$t_can_fetch ) {
+			return false;
+		}
 		$t_row = db_fetch_array( $p_result );
 
 		# Make the array numerically indexed. This is required to retrieve the
