@@ -1051,13 +1051,20 @@ function bug_ensure_exists( $p_bug_id ) {
 
 /**
  * check if the given user is the reporter of the bug
- * @param integer $p_bug_id  Integer representing bug identifier.
+ * @param integer|BugData  $p_bug_id    Integer representing bug identifier, or BugData object
  * @param integer $p_user_id Integer representing a user identifier.
  * @return boolean return true if the user is the reporter, false otherwise
  * @access public
  */
 function bug_is_user_reporter( $p_bug_id, $p_user_id ) {
-	if( bug_get_field( $p_bug_id, 'reporter_id' ) == $p_user_id ) {
+	# Get a BugData object if the numerical id has been provided
+	if( is_numeric( $p_bug_id ) ) {
+		$t_bug = bug_get( $p_bug_id );
+	} else {
+		$t_bug = $p_bug_id;
+	}
+
+	if( $t_bug->reporter_id == $p_user_id ) {
 		return true;
 	} else {
 		return false;
@@ -1066,13 +1073,20 @@ function bug_is_user_reporter( $p_bug_id, $p_user_id ) {
 
 /**
  * check if the given user is the handler of the bug
- * @param integer $p_bug_id  Integer representing bug identifier.
+ * @param integer|BugData  $p_bug_id    Integer representing bug identifier, or BugData object
  * @param integer $p_user_id Integer representing a user identifier.
  * @return boolean return true if the user is the handler, false otherwise
  * @access public
  */
 function bug_is_user_handler( $p_bug_id, $p_user_id ) {
-	if( bug_get_field( $p_bug_id, 'handler_id' ) == $p_user_id ) {
+	# Get a BugData object if the numerical id has been provided
+	if( is_numeric( $p_bug_id ) ) {
+		$t_bug = bug_get( $p_bug_id );
+	} else {
+		$t_bug = $p_bug_id;
+	}
+
+	if( $t_bug->handler_id == $p_user_id ) {
 		return true;
 	} else {
 		return false;

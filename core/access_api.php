@@ -487,19 +487,33 @@ function access_has_any_project( $p_access_level, $p_user_id = null ) {
 }
 
 /**
- * Check the current user's access against the given value and return true
+ * Check a user's access, for a bug, against the given value and return true
  * if the user's access is equal to or higher, false otherwise.
- * This function looks up the bug's project and performs an access check
- * against that project
+ * This function looks up the bug's data and:
+ * - perform an access check for visibility of the issue to the provided user
+ * - performs an access check against the user permissions in the issue's project.
+ *
+ * Note that some visibility settings (limited view) may return a non accessible issue
+ * if checked before the intended changes are commited (eg, changing handler user).
+ * In this scenario, the BugData object, with the updated contets, should be provided
+ * as $p_bug parameter.
+ *
  * @param integer      $p_access_level Integer representing access level.
- * @param integer      $p_bug_id       Integer representing bug id to check access against.
+ * @param integer|BugData  $p_bug    Integer representing bug id to check access against, or BugData object
  * @param integer|null $p_user_id      Integer representing user id, defaults to null to use current user.
  * @return boolean whether user has access level specified
  * @access public
  */
-function access_has_bug_level( $p_access_level, $p_bug_id, $p_user_id = null ) {
+function access_has_bug_level( $p_access_level, $p_bug, $p_user_id = null ) {
 	if( $p_user_id === null ) {
 		$p_user_id = auth_get_current_user_id();
+	}
+
+	# Get a BugData object if the numerical id has been provided
+	if( is_numeric( $p_bug ) ) {
+		$t_bug = bug_get( $p_bug );
+	} else {
+		$t_bug = $p_bug;
 	}
 
 	# Deal with not logged in silently in this case
@@ -509,15 +523,15 @@ function access_has_bug_level( $p_access_level, $p_bug_id, $p_user_id = null ) {
 		return false;
 	}
 
-	$t_project_id = bug_get_field( $p_bug_id, 'project_id' );
-	$t_bug_is_user_reporter = bug_is_user_reporter( $p_bug_id, $p_user_id );
+	$t_project_id = $t_bug->project_id;
+	$t_bug_is_user_reporter = bug_is_user_reporter( $t_bug, $p_user_id );
 
 	# Check special limits
 	# Limited view means this user can only view the issues they reported and/or is handling
 	$t_limited_view = access_has_limited_view( $t_project_id, $p_user_id );
 
 	if( $t_limited_view ) {
-		$t_bug_is_user_handler = bug_is_user_handler( $p_bug_id, $p_user_id );
+		$t_bug_is_user_handler = bug_is_user_handler( $t_bug, $p_user_id );
 		if( !$t_bug_is_user_reporter && !$t_bug_is_user_handler ) {
 			return false;
 		}
@@ -526,7 +540,7 @@ function access_has_bug_level( $p_access_level, $p_bug_id, $p_user_id = null ) {
 	# If the bug is private and the user is not the reporter, then
 	# they must also have higher access than private_bug_threshold
 	$t_access_level = access_get_project_level( $t_project_id, $p_user_id );
-	if( !$t_bug_is_user_reporter && bug_get_field( $p_bug_id, 'view_state' ) == VS_PRIVATE ) {
+	if( !$t_bug_is_user_reporter && $t_bug->view_state == VS_PRIVATE ) {
 		$t_private_bug_threshold = config_get( 'private_bug_threshold', null, $p_user_id, $t_project_id );
 		return access_compare_level( $t_access_level, $t_private_bug_threshold )
 			&& access_compare_level( $t_access_level, $p_access_level );
