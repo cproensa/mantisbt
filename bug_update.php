@@ -228,7 +228,7 @@ if( $t_existing_bug->handler_id != $t_updated_bug->handler_id ) {
 	$t_issue_is_sponsored = config_get( 'enable_sponsorship' )
 		&& sponsorship_get_amount( sponsorship_get_all_ids( $f_bug_id ) ) > 0;
 	access_ensure_bug_level( config_get( 'update_bug_assign_threshold' ), $f_bug_id );
-	if( $t_issue_is_sponsored && !access_has_bug_level( config_get( 'handle_sponsored_bugs_threshold' ), $f_bug_id ) ) {
+	if( $t_issue_is_sponsored && !access_has_bug_level( config_get( 'handle_sponsored_bugs_threshold' ), $f_bug_id, $t_updated_bug->handler_id ) ) {
 		trigger_error( ERROR_SPONSORSHIP_HANDLER_ACCESS_LEVEL_TOO_LOW, ERROR );
 	}
 	if( $t_updated_bug->handler_id != NO_USER ) {
