@@ -513,7 +513,7 @@ function access_has_bug_level( $p_access_level, $p_bug_id, $p_user_id = null ) {
 	$t_bug_is_user_reporter = bug_is_user_reporter( $p_bug_id, $p_user_id );
 
 	# Check special limits
-	# Limited view means this user can only view th issues they reporter and/or is handling
+	# Limited view means this user can only view the issues they reported and/or is handling
 	$t_limited_view = access_has_limited_view( $t_project_id, $p_user_id );
 
 	if( $t_limited_view ) {
