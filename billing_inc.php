@@ -185,12 +185,12 @@ $t_block_icon = $t_collapse_block ? 'fa-chevron-down' : 'fa-chevron-up';
 		echo '<br /><div class="noprint">';
 
 		$t_exports = array(
-			'csv_export' => 'billing_export_to_csv.php',
-			'excel_export' => 'billing_export_to_excel.php',
+			'csv_export' => 'billing_export.php?type=csv',
+			'excel_export' => 'billing_export.php?type=excel',
 		);
 
 		foreach( $t_exports as $t_export_label => $t_export_page ) {
-			echo '[ <a href="' . $t_export_page . '?';
+			echo '[ <a href="' . $t_export_page . '&amp;';
 			echo 'from=' . $t_from . '&amp;to=' . $t_to;
 			echo '&amp;cost=' . $f_bugnote_cost;
 			echo '&amp;project_id=' . $f_project_id;
