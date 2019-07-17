@@ -45,6 +45,8 @@ require_api( 'filter_api.php' );
 require_api( 'helper_api.php' );
 require_api( 'print_api.php' );
 
+use Mantis\Export;
+
 auth_ensure_user_authenticated();
 
 helper_begin_long_process();
@@ -62,7 +64,7 @@ if( 0 == $t_filter_query->get_bug_count() ) {
 }
 
 
-$t_writer = \Export\WriterFactory::createFromType( 'csv' );
+$t_writer = Export\WriterFactory::createFromType( 'csv' );
 $t_writer->openToBrowser( csv_get_default_filename() );
 
 //csv_start( csv_get_default_filename() );

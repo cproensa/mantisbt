@@ -1,5 +1,7 @@
 <?php
 
+namespace Mantis\Export;
+
 class Cell {
     /**
      * Numeric cell type (whole numbers, fractional numbers, dates)

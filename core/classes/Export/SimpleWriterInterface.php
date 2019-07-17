@@ -1,5 +1,7 @@
 <?php
 
+namespace Mantis\Export;
+
 interface SimpleWriterInterface {
 	//public function openToFile( $p_output_file_path );
 	public function openToBrowser( $p_output_file_name );

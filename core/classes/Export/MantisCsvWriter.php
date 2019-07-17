@@ -1,5 +1,7 @@
 <?php
 
+namespace Mantis\Export;
+
 /*
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
@@ -19,9 +21,9 @@ class MantisCsvWriter implements SimpleWriterInterface {
 	protected $separator;
 	protected $date_format;
 	
-	public function __constructor() {
+	public function __construct() {
 		$this->newline = csv_get_newline();
-		$this->separator = csv_get_separator();
+		$this->separator = config_get( 'csv_separator' );
 		$this->date_format = config_get( 'short_date_format' );
 	}
 
