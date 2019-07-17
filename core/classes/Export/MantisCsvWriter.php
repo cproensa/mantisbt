@@ -17,9 +17,9 @@ require_api( 'csv_api.php' );
  * @author cpm
  */
 class MantisCsvWriter implements SimpleWriterInterface {
-	protected $newline;
-	protected $separator;
-	protected $date_format;
+	public $newline;
+	public $separator;
+	public $date_format;
 	
 	public function __construct() {
 		$this->newline = csv_get_newline();
@@ -58,7 +58,9 @@ class MantisCsvWriter implements SimpleWriterInterface {
 						echo $t_value;
 						break;
 					case Cell::TYPE_DATE:
-						echo date( $s_date_format, $t_value );
+						if( !date_is_null( $t_value ) ) {
+							echo date( $this->date_format, $t_value );
+						}
 						break;
 					default:
 						echo csv_escape_string( $t_value );

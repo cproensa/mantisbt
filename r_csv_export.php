@@ -45,14 +45,13 @@ require_api( 'filter_api.php' );
 require_api( 'helper_api.php' );
 require_api( 'print_api.php' );
 
+require_api( 'export_api.php' );
+
 use Mantis\Export;
 
 auth_ensure_user_authenticated();
 
 helper_begin_long_process();
-
-//$t_nl = csv_get_newline();
-//$t_sep = csv_get_separator();
 
 # Get current filter
 $t_filter = filter_get_bug_rows_filter();
@@ -63,28 +62,8 @@ if( 0 == $t_filter_query->get_bug_count() ) {
 	print_header_redirect( 'view_all_set.php?type=0' );
 }
 
-
 $t_writer = Export\WriterFactory::createFromType( 'csv' );
 $t_writer->openToBrowser( csv_get_default_filename() );
-
-//csv_start( csv_get_default_filename() );
-
-/*
-# export the titles
-$t_first_column = true;
-ob_start();
-$t_titles = array();
-foreach ( $t_columns as $t_column ) {
-	if( !$t_first_column ) {
-		echo $t_sep;
-	} else {
-		$t_first_column = false;
-	}
-
-	echo column_get_title( $t_column );
-}
- * 
- */
 
 # Get columns to be exported
 $t_columns = csv_get_columns();
@@ -92,26 +71,18 @@ $t_titles = array();
 foreach ( $t_columns as $t_column ) {
 	$t_titles[] = column_get_title( $t_column );
 }
-$t_writer->addRowFromArray( $t_titles );
-
-$t_writer->close();
-exit;
-		
-//echo $t_nl;
-
-$t_header = ob_get_clean();
-
 # Fixed for a problem in Excel where it prompts error message "SYLK: File Format Is Not Valid"
 # See Microsoft Knowledge Base Article - 323626
 # http://support.microsoft.com/default.aspx?scid=kb;en-us;323626&Product=xlw
-$t_first_three_chars = mb_substr( $t_header, 0, 3 );
-if( strcmp( $t_first_three_chars, 'ID' . $t_sep ) == 0 ) {
-	$t_header = str_replace( 'ID' . $t_sep, 'Id' . $t_sep, $t_header );
+if( isset( $t_titles[0] ) ) {
+	if( $t_titles[0] == 'ID' ) {
+		$t_titles[0] = 'Id';
+	}
 }
 # end of fix
+$t_writer->addRowFromArray( $t_titles );
 
-echo $t_header;
-
+$t_user_id = auth_get_current_user_id();
 $t_end_of_results = false;
 $t_offset = 0;
 do {
@@ -143,8 +114,8 @@ do {
 	# Either way, process what we have
 
 	# convert and cache data
-	$t_rows = filter_cache_result( $t_read_rows, $t_bug_id_array );
-	bug_cache_columns_data( $t_rows, $t_columns );
+	$t_bugs = filter_cache_result( $t_read_rows, $t_bug_id_array );
+	bug_cache_columns_data( $t_bugs, $t_columns );
 
 	# Clear arrays that are not needed
 	unset( $t_read_rows );
@@ -152,34 +123,16 @@ do {
 	unset( $t_bug_id_array );
 
 	# export the rows
-	foreach ( $t_rows as $t_row ) {
-		$t_first_column = true;
-
+	foreach ( $t_bugs as $t_bug ) {
+		$t_row_values = array();
+		$t_row_types = array();
 		foreach ( $t_columns as $t_column ) {
-			if( !$t_first_column ) {
-				echo $t_sep;
-			} else {
-				$t_first_column = false;
-			}
-
-			$t_custom_field = column_get_custom_field_name( $t_column );
-			if( $t_custom_field !== null ) {
-				echo csv_format_custom_field( $t_row->id, $t_row->project_id, $t_custom_field );
-			} else if( column_is_plugin_column( $t_column ) ) {
-				echo csv_format_plugin_column_value( $t_column, $t_row );
-			} else {
-				$t_function = 'csv_format_' . $t_column;
-				if( function_exists( $t_function ) ) {
-					echo $t_function( $t_row );
-				} else {
-					# Field is unknown
-					echo '';
-				}
-			}
+			$t_row_values[] = export_bugfield_prepare_value( $t_column, $t_bug, $t_user_id );
+			$t_row_types[] = export_bugfield_type( $t_column );
 		}
-
-		echo $t_nl;
+		$t_writer->addRowFromArray( $t_row_values, $t_row_types );
 	}
 
 } while ( false === $t_end_of_results );
 
+$t_writer->close();
