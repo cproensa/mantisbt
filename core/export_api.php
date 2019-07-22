@@ -213,3 +213,10 @@ function export_print_format_option_list() {
 		echo '<option value="',  $t_provider->unique_id, '">', $t_line, '</option>';
 	}
 }
+
+function export_can_manage_global_config( $p_user_id = null ) {
+	if( null === $p_user_id ) {
+		$p_user_id = auth_get_current_user_id();
+	}
+	return access_has_global_level( config_get( 'manage_configuration_threshold' , null, ALL_USERS, ALL_PROJECTS ), $p_user_id );
+}
