@@ -202,7 +202,7 @@ function export_get_default_filename() {
 }
 
 function export_print_format_option_list() {
-	$t_providers = TableWriterFactory::getAllProviders();
+	$t_providers = TableWriterFactory::getProviders();
 	$fn_sort = function ( $p1, $p2 ) {
 		return strcmp($p1->short_name, $p2->short_name);
 	};
