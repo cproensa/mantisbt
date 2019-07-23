@@ -100,10 +100,7 @@ class TableWriterFactory {
 		if( null === $p_user_id ) {
 			$p_user_id = auth_get_current_user_id();
 		}
-		$t_default_id = config_get( 'export_default_plugin', null, $p_user_id, ALL_PROJECTS );
-		if( !$t_default_id ) {
-			$t_default_id = config_get( 'export_default_plugin', null, ALL_USERS, ALL_PROJECTS );
-		}
+		$t_default_id = config_get( 'export_default_plugin', null, $p_user_id );
 		$t_providers = self::getProviders();
 		if( $t_default_id ) {
 			if( isset( $t_providers[$t_default_id] ) ) {
